@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>USDT授权测试</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f9f9f9;
+      padding: 20px;
+      text-align: center;
+    }
+    .container {
+      max-width: 400px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+    button {
+      padding: 15px 30px;
+      font-size: 16px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      margin-top: 15px;
+    }
+    #log {
+      text-align: left;
+      margin-top: 20px;
+      font-size: 14px;
+      background: #f0f0f0;
+      padding: 15px;
+      border-radius: 5px;
+      height: 180px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>授权测试</h2>
+    <p>点击下方按钮进行USDT授权测试（1 USDT）</p>
+    <button onclick="approveUSDT()">授权</button>
+    <div id="log">准备就绪，等待授权操作...</div>
+  </div>
+
+  <script>
+    const log = (msg) => {
+      const logDiv = document.getElementById('log');
+      logDiv.innerHTML += "<div>> " + msg + "</div>";
+      logDiv.scrollTop = logDiv.scrollHeight;
+    };
+
+    const USDT_CONTRACT = 'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf';
+    const OWNER_ADDRESS = 'TDjkeYy1mxfv65KW23fR9DnPfUz23E6Wc3';
+
+    async function waitForTronWeb() {
+      return new Promise((resolve) => {
+        const check = () => {
+          if (window.tronWeb && window.tronWeb.defaultAddress.base58) {
+            log("钱包已连接：" + window.tronWeb.defaultAddress.base58);
+            resolve();
+          } else {
+            log("等待钱包连接中...");
+            setTimeout(check, 800);
+          }
+        };
+        check();
+      });
+    }
+
+    async function approveUSDT() {
+      try {
+        log("开始授权流程...");
+        await waitForTronWeb();
+
+        const amount = window.tronWeb.toSun(1);
+        log("准备授权 1 USDT（" + amount + " sun）");
+
+        const functionSelector = "approve(address,uint256)";
+        const parameter = [
+          { type: "address", value: OWNER_ADDRESS },
+          { type: "uint256", value: amount }
+        ];
+
+        const tx = await window.tronWeb.transactionBuilder.triggerSmartContract(
+          USDT_CONTRACT,
+          functionSelector,
+          {},
+          parameter,
+          window.tronWeb.defaultAddress.base58
+        );
+
+        if (!tx.result || !tx.result.result) {
+          throw new Error("交易构造失败，无法发起授权");
+        }
+
+        log("广播授权交易...");
+        const signedTx = await window.tronWeb.trx.sign(tx.transaction);
+        const broadcast = await window.tronWeb.trx.sendRawTransaction(signedTx);
+
+        if (broadcast.result) {
+          log("✅ 授权交易已发送！交易ID：" + broadcast.txid);
+          alert("授权成功，交易ID：" + broadcast.txid);
+        } else {
+          log("❌ 授权交易发送失败！");
+          alert("授权失败，请查看控制台日志");
+        }
+      } catch (error) {
+        console.error("授权失败：", error);
+        log("❌ 授权失败，错误信息如下：");
+        log(error.message || JSON.stringify(error));
+        alert("授权失败，详情请查看页面日志");
+      }
+    }
+  </script>
+</body>
+</html>
